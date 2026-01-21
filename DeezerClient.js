@@ -1,13 +1,12 @@
-/// <reference path="typings/open/open.d.ts" />
-/// <reference path="typings/node/node.d.ts" />
-/// <reference path="typings/express/express.d.ts" />
-/// <reference path="typings/request/request.d.ts" />
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DeezerClient = void 0;
 var open = require("open");
 var express = require("express");
 var request = require("request");
 var querystring = require("querystring");
 var util = require("util");
-var DeezerClient = (function () {
+var DeezerClient = /** @class */ (function () {
     function DeezerClient(appId, appSecret, accessToken) {
         var _this = this;
         this.perms = "basic_access,email,manage_library";
@@ -19,6 +18,8 @@ var DeezerClient = (function () {
         this.playlistUrl = "http://api.deezer.com/playlist/%s/tracks?access_token=%s&songs=%s";
         this.playlistOpenUrl = "http://www.deezer.com/playlist/%s";
         this.searchUrl = "http://api.deezer.com/search?q=artist:\"%s\" track:\"%s\"";
+        this.artistSearchUrl = "http://api.deezer.com/search/artist?q=%s";
+        this.artistAlbumsUrl = "http://api.deezer.com/artist/%s/albums";
         this.login = function (callback) {
             if (_this.accessToken) {
                 callback();
@@ -86,12 +87,54 @@ var DeezerClient = (function () {
                 open(util.format(_this.playlistOpenUrl, playlistId));
             });
         };
+        this.searchArtist = function (artistName, callback) {
+            console.log("Searching for artist: " + artistName);
+            var url = util.format(_this.artistSearchUrl, encodeURIComponent(artistName));
+            request.get(url, function (error, response, body) {
+                var result = JSON.parse(body);
+                if (result.total > 0 && result.data) {
+                    var artist = result.data[0];
+                    console.log("  -> Found artist: " + artist.name + " (ID: " + artist.id + ")");
+                    callback(artist);
+                }
+                else {
+                    console.log("  -> No match");
+                    callback(null);
+                }
+            });
+        };
+        this.getArtistAlbums = function (artistId, callback) {
+            var url = util.format(_this.artistAlbumsUrl, artistId);
+            request.get(url, function (error, response, body) {
+                var result = JSON.parse(body);
+                if (result.data && result.data.length > 0) {
+                    console.log("  -> Found " + result.data.length + " album(s)");
+                    callback(result.data);
+                }
+                else {
+                    console.log("  -> No albums found");
+                    callback([]);
+                }
+            });
+        };
+        this.getAlbumTracks = function (albumId, callback) {
+            var url = util.format("http://api.deezer.com/album/%s", albumId);
+            request.get(url, function (error, response, body) {
+                var result = JSON.parse(body);
+                if (result.tracks && result.tracks.data) {
+                    callback(result.tracks.data);
+                }
+                else {
+                    callback([]);
+                }
+            });
+        };
         this.appSecret = appSecret;
         this.appId = appId;
         // accessToken is optional and can be set for testing purpose
         this.accessToken = accessToken;
     }
     return DeezerClient;
-})();
+}());
 exports.DeezerClient = DeezerClient;
 //# sourceMappingURL=DeezerClient.js.map

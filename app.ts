@@ -1,7 +1,3 @@
-/// <reference path="typings/minimist/minimist.d.ts" />
-/// <reference path="DeezerTrack.ts" />
-/// <reference path="DeezerClient.ts" />
-
 import readline = require("readline");
 import fs = require("fs");
 import minimist = require("minimist");
@@ -24,37 +20,100 @@ if (!argv.playlistName) {
     process.exit(-1);
 }
 
-var tracks: deezerTrack.DeezerTrack[] = [];
+var artists: string[] = [];
+var allTracks: any[] = [];
 
 var deezer = new deezerClient.DeezerClient(appId, appSecret);
 
-deezer.login(() => {
-    deezer.createPlaylist(argv.playlistName, (playlistId) => {
-        importFileToPlaylist(playlistId);
-    });    
-});
+// Modo de busca apenas - não precisa de autenticação
+console.log("=== Deezer Playlist Builder - Search Mode ===");
+console.log("Nota: Como o Deezer não permite novos registros de app,");
+console.log("este programa vai listar as músicas que seriam adicionadas.\n");
+importArtistsAndList();
 
-function importFileToPlaylist(playlistId: string) {
+function importArtistsAndList() {
     // open the file given as parameter and read it line by line
     var rl = readline.createInterface(<any>{ input: fs.createReadStream(argv.inputFile) });
-    rl.on('line', line => { tracks.push(new deezerTrack.DeezerTrack(line)); });
+    rl.on('line', line => { 
+        const trimmedLine = line.trim();
+        if (trimmedLine) {
+            artists.push(trimmedLine); 
+        }
+    });
 
-    // when we read end of file, search for all tracks
+    // when we read end of file, search for all artists and their albums
     rl.on('close', () => {
-        console.log("Ready to search " + tracks.length + " track(s)");
+        console.log("Ready to search " + artists.length + " artist(s)");
         var i = 0;
-        function searchTrack() {
-            var track = tracks[i];
-            deezer.search(track, () => {
-                i++;
-                if (i < tracks.length) {
-                    // recursive call to look for next track
-                    searchTrack();
+        
+        function processArtist() {
+            if (i >= artists.length) {
+                // All artists processed, show summary
+                console.log("\n=================================================");
+                console.log("RESUMO - Total de " + allTracks.length + " música(s) encontradas");
+                console.log("=================================================\n");
+                
+                // Agrupar por artista
+                const tracksByArtist = {};
+                allTracks.forEach(track => {
+                    const artistName = track.artist ? track.artist.name : "Desconhecido";
+                    if (!tracksByArtist[artistName]) {
+                        tracksByArtist[artistName] = [];
+                    }
+                    tracksByArtist[artistName].push(track);
+                });
+                
+                // Mostrar estatísticas
+                Object.keys(tracksByArtist).forEach(artistName => {
+                    console.log(artistName + ": " + tracksByArtist[artistName].length + " músicas");
+                });
+                
+                console.log("\nPara criar a playlist automaticamente, você precisaria:");
+                console.log("1. Ter credenciais válidas do Deezer API");
+                console.log("2. Ou criar manualmente a playlist com estes IDs de tracks:");
+                console.log(allTracks.map(t => t.id).join(","));
+                return;
+            }
+            
+            var artistName = artists[i];
+            console.log("\n[" + (i + 1) + "/" + artists.length + "] Processing: " + artistName);
+            
+            deezer.searchArtist(artistName, (artist) => {
+                if (artist) {
+                    deezer.getArtistAlbums(artist.id, (albums) => {
+                        if (albums.length > 0) {
+                            processAlbums(albums, 0, () => {
+                                i++;
+                                processArtist();
+                            });
+                        } else {
+                            i++;
+                            processArtist();
+                        }
+                    });
                 } else {
-                    deezer.addTrackToPlaylist(tracks, playlistId);
+                    i++;
+                    processArtist();
                 }
             });
         }
-        searchTrack();
+        
+        function processAlbums(albums: any[], albumIndex: number, callback: Function) {
+            if (albumIndex >= albums.length) {
+                callback();
+                return;
+            }
+            
+            const album = albums[albumIndex];
+            console.log("    Getting tracks from album: " + album.title);
+            
+            deezer.getAlbumTracks(album.id, (tracks) => {
+                console.log("      -> " + tracks.length + " track(s) added");
+                allTracks = allTracks.concat(tracks);
+                processAlbums(albums, albumIndex + 1, callback);
+            });
+        }
+        
+        processArtist();
     });
 }

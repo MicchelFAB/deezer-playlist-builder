@@ -28,5 +28,10 @@
     "open": "7.0.3",
     "prompt": "^0.2.14",
     "request": "^2.64.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/minimist": "^1.2.5",
+    "@types/node": "^25.0.9"
   }
 }

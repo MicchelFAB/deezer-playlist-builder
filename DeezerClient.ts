@@ -1,14 +1,9 @@
-﻿/// <reference path="typings/open/open.d.ts" />
-/// <reference path="typings/node/node.d.ts" />
-/// <reference path="typings/express/express.d.ts" />
-/// <reference path="typings/request/request.d.ts" />
-
-import open = require("open");
+﻿import open = require("open");
 import express = require("express");
 import request = require("request");
 import querystring = require("querystring");
 import util = require("util");
-import deezerTrack = require("DeezerTrack");
+import deezerTrack = require("./DeezerTrack");
 
 export class DeezerClient {
     private perms = "basic_access,email,manage_library";
@@ -22,6 +17,8 @@ export class DeezerClient {
     private playlistUrl = "http://api.deezer.com/playlist/%s/tracks?access_token=%s&songs=%s";
     private playlistOpenUrl = "http://www.deezer.com/playlist/%s";
     private searchUrl = "http://api.deezer.com/search?q=artist:\"%s\" track:\"%s\"";
+    private artistSearchUrl = "http://api.deezer.com/search/artist?q=%s";
+    private artistAlbumsUrl = "http://api.deezer.com/artist/%s/albums";
 
     private appSecret: string;
     private appId: string;
@@ -51,7 +48,7 @@ export class DeezerClient {
                 const url = util.format(this.tokenUrl, this.appId, this.appSecret, req.query.code);
                 request.get(url, (error, response, body) => {
                     var content = querystring.parse(body);
-                    this.accessToken = content.access_token;
+                    this.accessToken = content.access_token as string;
                     callback();
                 });
             } else {
@@ -104,6 +101,48 @@ export class DeezerClient {
         const url = util.format(this.playlistUrl, playlistId, this.accessToken, ids);
         request.post(url, { method: "POST" }, (error, response, body) => {
             open(util.format(this.playlistOpenUrl, playlistId));
+        });
+    }
+
+    searchArtist = (artistName: string, callback: Function) => {
+        console.log("Searching for artist: " + artistName);
+        const url = util.format(this.artistSearchUrl, encodeURIComponent(artistName));
+        request.get(url, (error, response, body) => {
+            var result = JSON.parse(body);
+            if (result.total > 0 && result.data) {
+                const artist = result.data[0];
+                console.log("  -> Found artist: " + artist.name + " (ID: " + artist.id + ")");
+                callback(artist);
+            } else {
+                console.log("  -> No match");
+                callback(null);
+            }
+        });
+    }
+
+    getArtistAlbums = (artistId: string, callback: Function) => {
+        const url = util.format(this.artistAlbumsUrl, artistId);
+        request.get(url, (error, response, body) => {
+            var result = JSON.parse(body);
+            if (result.data && result.data.length > 0) {
+                console.log("  -> Found " + result.data.length + " album(s)");
+                callback(result.data);
+            } else {
+                console.log("  -> No albums found");
+                callback([]);
+            }
+        });
+    }
+
+    getAlbumTracks = (albumId: string, callback: Function) => {
+        const url = util.format("http://api.deezer.com/album/%s", albumId);
+        request.get(url, (error, response, body) => {
+            var result = JSON.parse(body);
+            if (result.tracks && result.tracks.data) {
+                callback(result.tracks.data);
+            } else {
+                callback([]);
+            }
         });
     }
 }

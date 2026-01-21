@@ -30,4 +30,5 @@ typings
 *.dat
 *.suo
 *.map
-*.txt
+*.txt.env.local
+.env.local
