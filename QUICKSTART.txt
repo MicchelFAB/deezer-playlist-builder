@@ -1,0 +1,133 @@
+🎵 DEEZER PLAYLIST BUILDER - GUIA RÁPIDO
+═══════════════════════════════════════════════
+
+┌─────────────────────────────────────────────┐
+│  📦 INSTALAÇÃO (Primeira vez)               │
+└─────────────────────────────────────────────┘
+
+  ./setup.sh
+
+
+┌─────────────────────────────────────────────┐
+│  🔑 OBTER CREDENCIAIS DO NAVEGADOR          │
+└─────────────────────────────────────────────┘
+
+  1. Abra: https://www.deezer.com
+  2. F12 → Network → Adicione 1 música
+  3. Encontre: gw-light.php?method=playlist.addSongs
+  4. Copy as cURL
+  5. Extraia:
+     • api_token=XXXX → DEEZER_API_TOKEN
+     • x-deezer-user: 123 → DEEZER_USER_ID
+     • Cookie: ... → DEEZER_COOKIES (tudo!)
+
+
+┌─────────────────────────────────────────────┐
+│  ⚙️  CONFIGURAR                              │
+└─────────────────────────────────────────────┘
+
+  nano .env.local
+
+  # Cole os valores:
+  export DEEZER_API_TOKEN="..."
+  export DEEZER_USER_ID="..."
+  export DEEZER_COOKIES="sid=...; arl=...; jwt=..."
+  export DEEZER_PLAYLIST_ID="..."
+
+
+┌─────────────────────────────────────────────┐
+│  🔍 BUSCAR MÚSICAS                          │
+└─────────────────────────────────────────────┘
+
+  # Crie artist.txt com um artista por linha
+  echo "Limão Com Mel" > artist.txt
+  echo "Capim Com Mel" >> artist.txt
+
+  # Execute busca
+  node search-albums.js \
+    --inputFile artist.txt \
+    --outputFile playlist_tracks.txt
+
+
+┌─────────────────────────────────────────────┐
+│  ➕ ADICIONAR À PLAYLIST                    │
+└─────────────────────────────────────────────┘
+
+  # Carregue credenciais
+  source .env.local
+
+  # Opção 1: Bash (rápido)
+  ./add-tracks-manual.sh
+
+  # Opção 2: TypeScript (recomendado)
+  ts-node add-tracks.ts --inputFile playlist_tracks.txt
+
+
+┌─────────────────────────────────────────────┐
+│  📊 RESULTADO ESPERADO                      │
+└─────────────────────────────────────────────┘
+
+  🎵 Deezer Playlist Batch Adder
+  ===========================================
+  Playlist ID: 14853190063
+  Token: h6B8diKHJGik4QqW9JjS...
+
+  📂 Extraindo IDs...
+  ✓ Total: 1384 faixas
+
+  🎶 Adicionando em lotes de 50...
+    ✓ Lote 1 adicionado (50 músicas)
+    ✓ Lote 2 adicionado (50 músicas)
+    ...
+    ✓ Lote 28 adicionado (34 músicas)
+
+  ================================
+  ✅ Processo finalizado!
+  📊 Total processado: 1384
+  🎵 Adicionadas: ~1384
+
+
+┌─────────────────────────────────────────────┐
+│  🐛 PROBLEMAS COMUNS                        │
+└─────────────────────────────────────────────┘
+
+  ❌ VALID_TOKEN_REQUIRED
+     → Token expirou, obtenha novo do navegador
+
+  ❌ jq: command not found
+     → sudo apt install jq
+
+  ❌ Nenhuma música encontrada
+     → Verifique formato do artist.txt
+
+
+┌─────────────────────────────────────────────┐
+│  📚 DOCUMENTAÇÃO                            │
+└─────────────────────────────────────────────┘
+
+  PLAYLIST_ADDER_README.md  - Guia completo
+  SUMMARY.md                - Resumo do projeto
+  README.md                 - Overview geral
+  .env.example              - Template config
+
+
+┌─────────────────────────────────────────────┐
+│  ⚡ COMANDOS ÚTEIS                          │
+└─────────────────────────────────────────────┘
+
+  # Ver músicas encontradas
+  head -20 playlist_tracks.txt
+
+  # Contar músicas
+  grep -E '^[0-9]{7,}' playlist_tracks.txt | wc -l
+
+  # Testar configuração
+  source .env.local && echo $DEEZER_API_TOKEN
+
+  # Ver logs detalhados
+  ./add-tracks-manual.sh 2>&1 | tee log.txt
+
+
+═══════════════════════════════════════════════
+  Para ajuda: cat PLAYLIST_ADDER_README.md
+═══════════════════════════════════════════════
